@@ -32,9 +32,6 @@ COPY --from=builder /install /usr/local
 # Копируем код
 COPY . .
 
-# Запускаем MySQL и выполняем миграции
-RUN service mysql start && \
-    mysql -u root < init.sql
 
 EXPOSE 8080
 
