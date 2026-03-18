@@ -1,18 +1,41 @@
+ARG PYTHON_VERSION=3.10
 
-ARG PYTHON_VERSION=3.8
-FROM python:${PYTHON_VERSION}
+# ---------- BUILD STAGE ----------
+FROM python:${PYTHON_VERSION} AS builder
 
-ARG MY_ARG=default
-ENV MY_ENV=${MY_ARG}
-
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY app.py .
-COPY docker-logo.png .
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --prefix=/install -r requirements.txt
 
-RUN pip install Flask
+COPY . .
+
+
+# ---------- RUN STAGE ----------
+FROM python:${PYTHON_VERSION}-slim
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Устанавливаем MySQL Server
+RUN apt-get update && \
+    apt-get install -y default-mysql-server && \
+    rm -rf /var/lib/apt/lists/*
+
+# Копируем зависимости
+COPY --from=builder /install /usr/local
+
+# Копируем код
+COPY . .
+
+# Запускаем MySQL и выполняем миграции
+RUN service mysql start && \
+    mysql -u root < init.sql
 
 EXPOSE 8080
 
-ENTRYPOINT ["python","app.py"]
+ENTRYPOINT ["python", "app.py"]
